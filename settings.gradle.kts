@@ -9,6 +9,10 @@ pluginManagement {
         }
         mavenCentral()
         gradlePluginPortal()
+        maven {
+            url = uri("http://nexus.ngknn.local:8081/repository/maven-public/")
+            isAllowInsecureProtocol = true
+        }
     }
 }
 plugins {
@@ -19,6 +23,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url = uri("http://nexus.ngknn.local:8081/repository/maven-public/")
+            isAllowInsecureProtocol = true
+        }
     }
 }
 
