@@ -11,3 +11,4 @@ data class Product(
     val rating: Double = 0.0,
     val createdAt: Long = System.currentTimeMillis()
 )
+

@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.onlinestore.data.local.entity.CategoryEntity
 
 @Entity(
     tableName = "products",
@@ -28,3 +29,5 @@ data class ProductEntity(
     val rating: Double,
     val createdAt: Long
 )
+
+
