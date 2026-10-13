@@ -8,8 +8,11 @@ import com.example.onlinestore.domain.repository.CategoryRepository
 import com.example.onlinestore.domain.repository.ProductRepository
 import com.example.onlinestore.domain.usecase.GetProductsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,13 +24,20 @@ class ProductViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _products = MutableStateFlow<List<Product>>(emptyList())
-    val products = _products.asStateFlow()
+    val products: StateFlow<List<Product>> = _products.asStateFlow()
 
     private val _categories = MutableStateFlow<List<Category>>(emptyList())
-    val categories = _categories.asStateFlow()
+    val categories: StateFlow<List<Category>> = _categories.asStateFlow()
+
+    private val _selectedProduct = MutableStateFlow<Product?>(null)
+    val selectedProduct: StateFlow<Product?> = _selectedProduct.asStateFlow()
 
     private val _saveError = MutableStateFlow<String?>(null)
-    val saveError = _saveError.asStateFlow()
+    val saveError: StateFlow<String?> = _saveError.asStateFlow()
+
+    // Channel для Snackbar "Данные сохранены" один раз
+    private val _saveEvent = Channel<Unit>(Channel.CONFLATED)
+    val saveEvent = _saveEvent.receiveAsFlow()
 
     init {
         loadProducts()
@@ -39,8 +49,7 @@ class ProductViewModel @Inject constructor(
             try {
                 _products.value = getProductsUseCase()
             } catch (exception: Exception) {
-                _saveError.value =
-                    exception.message ?: "Не удалось загрузить товары"
+                _saveError.value = exception.message ?: "Не удалось загрузить товары"
             }
         }
     }
@@ -50,10 +59,27 @@ class ProductViewModel @Inject constructor(
             try {
                 _categories.value = categoryRepository.getAllCategories()
             } catch (exception: Exception) {
-                _saveError.value =
-                    exception.message ?: "Не удалось загрузить категории"
+                _saveError.value = exception.message ?: "Не удалось загрузить категории"
             }
         }
+    }
+
+    fun loadProductById(id: Int) {
+        viewModelScope.launch {
+            try {
+                _selectedProduct.value = productRepository.getProductById(id)
+            } catch (exception: Exception) {
+                _saveError.value = exception.message ?: "Не удалось загрузить товар"
+            }
+        }
+    }
+
+    fun clearSelectedProduct() {
+        _selectedProduct.value = null
+    }
+
+    fun getCategoryNameById(categoryId: Int): String? {
+        return _categories.value.find { it.id == categoryId }?.name
     }
 
     fun addProduct(
@@ -77,22 +103,68 @@ class ProductViewModel @Inject constructor(
                         stockQuantity = stockQuantity
                     )
                 )
-
                 _saveError.value = null
                 loadProducts()
+                _saveEvent.send(Unit) // Snackbar "Данные сохранены"
                 onResult(true)
             } catch (exception: Exception) {
-                _saveError.value =
-                    exception.message ?: "Не удалось сохранить товар"
+                _saveError.value = exception.message ?: "Не удалось сохранить товар"
                 onResult(false)
             }
         }
     }
 
-    fun addCategory(
+    fun updateProduct(
+        id: Int,
         name: String,
-        description: String = ""
+        description: String,
+        price: Double,
+        categoryId: Int,
+        stockQuantity: Int,
+        onResult: (Boolean) -> Unit
     ) {
+        viewModelScope.launch {
+            try {
+                productRepository.updateProduct(
+                    Product(
+                        id = id,
+                        name = name.trim(),
+                        description = description.trim(),
+                        price = price,
+                        categoryId = categoryId,
+                        imageUrl = "",
+                        stockQuantity = stockQuantity
+                    )
+                )
+                _saveError.value = null
+                loadProducts()
+                loadProductById(id)
+                _saveEvent.send(Unit)
+                onResult(true)
+            } catch (exception: Exception) {
+                _saveError.value = exception.message ?: "Не удалось обновить товар"
+                onResult(false)
+            }
+        }
+    }
+
+    fun deleteProduct(product: Product, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                productRepository.deleteProduct(product)
+                _saveError.value = null
+                _selectedProduct.value = null
+                loadProducts()
+                _saveEvent.send(Unit) // Snackbar "Данные сохранены"
+                onResult(true)
+            } catch (exception: Exception) {
+                _saveError.value = exception.message ?: "Не удалось удалить товар"
+                onResult(false)
+            }
+        }
+    }
+
+    fun addCategory(name: String, description: String = "") {
         viewModelScope.launch {
             try {
                 categoryRepository.addCategory(
@@ -103,9 +175,9 @@ class ProductViewModel @Inject constructor(
                     )
                 )
                 loadCategories()
+                _saveEvent.send(Unit) // Snackbar "Данные сохранены"
             } catch (exception: Exception) {
-                _saveError.value =
-                    exception.message ?: "Не удалось сохранить категорию"
+                _saveError.value = exception.message ?: "Не удалось сохранить категорию"
             }
         }
     }

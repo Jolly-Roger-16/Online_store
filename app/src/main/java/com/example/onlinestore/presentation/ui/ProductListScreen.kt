@@ -19,12 +19,17 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.onlinestore.domain.model.Product
 import com.example.onlinestore.presentation.ui.viewmodel.ProductViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,102 +46,179 @@ fun ProductListScreen(
     viewModel: ProductViewModel = hiltViewModel()
 ) {
     val products by viewModel.products.collectAsStateWithLifecycle()
+    val selectedProduct by viewModel.selectedProduct.collectAsStateWithLifecycle()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Обработка события "Данные сохранены" через Channel (показывается один раз)
+    LaunchedEffect(viewModel.saveEvent) {
+        viewModel.saveEvent.collect {
+            snackbarHostState.showSnackbar("Данные сохранены")
+        }
+    }
 
     var showAddProductForm by rememberSaveable { mutableStateOf(false) }
     var showAddCategoryDialog by rememberSaveable { mutableStateOf(false) }
+    var editingProduct by remember { mutableStateOf<Product?>(null) }
 
+    // Диалог создания категории
     if (showAddCategoryDialog) {
         AddCategoryDialog(
             onDismiss = { showAddCategoryDialog = false },
             onSave = { name, description ->
-                viewModel.addCategory(
-                    name = name,
-                    description = description
-                )
+                viewModel.addCategory(name = name, description = description)
                 showAddCategoryDialog = false
             }
         )
     }
 
-    if (showAddProductForm) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Новый товар") },
-                    navigationIcon = {
-                        TextButton(
-                            onClick = { showAddProductForm = false }
-                        ) {
-                            Text("Назад")
+    when {
+        // 1. Режим просмотра деталей товара
+        selectedProduct != null -> {
+            Scaffold(
+                snackbarHost = { SnackbarHost(snackbarHostState) },
+                topBar = {
+                    TopAppBar(
+                        title = { Text("Товар") },
+                        navigationIcon = {
+                            TextButton(onClick = { viewModel.clearSelectedProduct() }) {
+                                Text("Назад")
+                            }
                         }
-                    }
-                )
-            }
-        ) { padding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
-                AddEditProductScreen(
-                    onSaved = { showAddProductForm = false },
-                    viewModel = viewModel
-                )
-            }
-        }
-    } else {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Онлайн-магазин") },
-                    actions = {
-                        TextButton(
-                            onClick = { showAddCategoryDialog = true }
-                        ) {
-                            Text("Категории")
-                        }
-                    }
-                )
-            },
-            floatingActionButton = {
-                FloatingActionButton(
-                    onClick = { showAddProductForm = true }
+                    )
+                }
+            ) { padding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
                 ) {
-                    Text("+")
+                    ProductDetailScreen(
+                        product = selectedProduct!!,
+                        categoryName = viewModel.getCategoryNameById(selectedProduct!!.categoryId),
+                        onBack = { viewModel.clearSelectedProduct() },
+                        onEdit = {
+                            editingProduct = selectedProduct
+                            viewModel.clearSelectedProduct()
+                        },
+                        onDelete = {
+                            viewModel.deleteProduct(selectedProduct!!) { success ->
+                                if (success) {
+                                    // selectedProduct уже обнуляется внутри ViewModel
+                                }
+                            }
+                        }
+                    )
                 }
             }
-        ) { padding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                if (products.isEmpty()) {
-                    Text("Товаров пока нет")
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(products, key = { it.id }) { product ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
+        }
+
+        // 2. Режим редактирования товара
+        editingProduct != null -> {
+            Scaffold(
+                snackbarHost = { SnackbarHost(snackbarHostState) },
+                topBar = {
+                    TopAppBar(
+                        title = { Text("Редактировать товар") },
+                        navigationIcon = {
+                            TextButton(onClick = { editingProduct = null }) {
+                                Text("Назад")
+                            }
+                        }
+                    )
+                }
+            ) { padding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                ) {
+                    AddEditProductScreen(
+                        product = editingProduct,
+                        onSaved = {
+                            editingProduct = null
+                        },
+                        viewModel = viewModel
+                    )
+                }
+            }
+        }
+
+        // 3. Режим добавления нового товара
+        showAddProductForm -> {
+            Scaffold(
+                snackbarHost = { SnackbarHost(snackbarHostState) },
+                topBar = {
+                    TopAppBar(
+                        title = { Text("Новый товар") },
+                        navigationIcon = {
+                            TextButton(onClick = { showAddProductForm = false }) {
+                                Text("Назад")
+                            }
+                        }
+                    )
+                }
+            ) { padding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                ) {
+                    AddEditProductScreen(
+                        onSaved = { showAddProductForm = false },
+                        viewModel = viewModel
+                    )
+                }
+            }
+        }
+
+        // 4. Главный экран — список товаров
+        else -> {
+            Scaffold(
+                snackbarHost = { SnackbarHost(snackbarHostState) },
+                topBar = {
+                    TopAppBar(
+                        title = { Text("Онлайн-магазин") },
+                        actions = {
+                            TextButton(onClick = { showAddCategoryDialog = true }) {
+                                Text("Категории")
+                            }
+                        }
+                    )
+                },
+                floatingActionButton = {
+                    FloatingActionButton(onClick = { showAddProductForm = true }) {
+                        Text("+")
+                    }
+                }
+            ) { padding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (products.isEmpty()) {
+                        Text("Товаров пока нет")
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(products, key = { it.id }) { product ->
+                                Card(
+                                    onClick = { viewModel.loadProductById(product.id) },
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text(
-                                        text = product.name,
-                                        style = MaterialTheme.typography.titleMedium
-                                    )
-
-                                    Spacer(
-                                        modifier = Modifier.height(4.dp)
-                                    )
-
-                                    Text("${product.price} ₽")
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Text(
+                                            text = product.name,
+                                            style = MaterialTheme.typography.titleMedium
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text("${product.price} ₽")
+                                    }
                                 }
                             }
                         }
@@ -157,36 +240,24 @@ private fun AddCategoryDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text("Новая категория")
-        },
+        title = { Text("Новая категория") },
         text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = name,
-                    onValueChange = {
-                        name = it
-                        error = null
-                    },
+                    onValueChange = { name = it; error = null },
                     label = { Text("Название") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
-
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text("Описание") },
                     modifier = Modifier.fillMaxWidth()
                 )
-
                 error?.let {
-                    Text(
-                        text = it,
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    Text(text = it, color = MaterialTheme.colorScheme.error)
                 }
             }
         },
@@ -196,10 +267,7 @@ private fun AddCategoryDialog(
                     if (name.isBlank()) {
                         error = "Введите название категории"
                     } else {
-                        onSave(
-                            name.trim(),
-                            description.trim()
-                        )
+                        onSave(name.trim(), description.trim())
                     }
                 }
             ) {
@@ -207,9 +275,7 @@ private fun AddCategoryDialog(
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
+            TextButton(onClick = onDismiss) {
                 Text("Отмена")
             }
         }
