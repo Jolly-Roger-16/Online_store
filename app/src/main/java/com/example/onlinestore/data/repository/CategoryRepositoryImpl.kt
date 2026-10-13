@@ -2,6 +2,7 @@ package com.example.onlinestore.data.repository
 
 import com.example.onlinestore.data.local.dao.CategoryDao
 import com.example.onlinestore.data.mapper.toDomain
+import com.example.onlinestore.data.mapper.toEntity
 import com.example.onlinestore.domain.model.Category
 import com.example.onlinestore.domain.repository.CategoryRepository
 import javax.inject.Inject
@@ -19,4 +20,10 @@ class CategoryRepositoryImpl @Inject constructor(
     override suspend fun getCategoryById(id: Int): Category? {
         return categoryDao.getCategoryById(id)?.toDomain()
     }
+
+    override suspend fun addCategory(category: Category): Long {
+        return categoryDao.insert(category.toEntity())
+    }
+
+
 }

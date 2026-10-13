@@ -16,5 +16,7 @@ interface CategoryDao {
     suspend fun getCategoryById(id: Int): CategoryEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(category: CategoryEntity)
+    suspend fun insert(category: CategoryEntity): Long
+
+
 }
