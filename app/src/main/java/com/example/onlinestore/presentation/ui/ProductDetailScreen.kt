@@ -1,6 +1,8 @@
 package com.example.onlinestore.presentation.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.platform.testTag
+import coil3.compose.AsyncImage
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,6 +41,7 @@ fun ProductDetailScreen(
             text = { Text("Товар «${product.name}» будет удалён без возможности восстановления.") },
             confirmButton = {
                 Button(
+                    modifier = Modifier.testTag("confirm_delete_button"),
                     onClick = {
                         showDeleteDialog = false
                         onDelete()
@@ -62,6 +65,16 @@ fun ProductDetailScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        if (product.imageUrl.isNotBlank()) {
+            AsyncImage(
+                model = product.imageUrl,
+                contentDescription = product.name,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+            )
+        }
+
         Text(
             text = product.name,
             style = MaterialTheme.typography.headlineSmall
@@ -94,14 +107,18 @@ fun ProductDetailScreen(
 
         Button(
             onClick = onEdit,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("edit_button")
         ) {
             Text("Редактировать")
         }
 
         Button(
             onClick = { showDeleteDialog = true },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("delete_button"),
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
         ) {
             Text("Удалить")

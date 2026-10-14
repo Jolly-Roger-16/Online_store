@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -36,6 +38,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -278,34 +283,46 @@ fun ProductListScreen(
                                             },
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Column(modifier = Modifier.padding(16.dp)) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
                                                 if (product.imageUrl.isNotBlank()) {
                                                     AsyncImage(
                                                         model = product.imageUrl,
                                                         contentDescription = product.name,
                                                         contentScale = ContentScale.Crop,
                                                         modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .height(120.dp)
+                                                            .size(72.dp)
+                                                            .clip(RoundedCornerShape(8.dp))
                                                     )
-
-                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Spacer(modifier = Modifier.width(12.dp))
                                                 }
 
-                                                Text(
-                                                    text = product.name,
-                                                    style = MaterialTheme.typography.titleMedium
-                                                )
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = product.name,
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
 
-                                                Spacer(modifier = Modifier.height(4.dp))
+                                                    // DummyJSON отдаёт цены в долларах, локальные товары храним в рублях
+                                                    Text(
+                                                        text = if (showRemoteProducts) "${product.price} $" else "${product.price} ₽",
+                                                        style = MaterialTheme.typography.bodyMedium
+                                                    )
 
-                                                // DummyJSON отдаёт цены в долларах, локальные товары храним в рублях
-                                                Text(if (showRemoteProducts) "${product.price} $" else "${product.price} ₽")
-
-                                                if (showRemoteProducts) {
-                                                    Text("Категория: ${product.categoryName ?: "Не указана"}")
-                                                    Text("Рейтинг: ${product.rating}")
-                                                    Text("Остаток: ${product.stockQuantity}")
+                                                    if (showRemoteProducts) {
+                                                        Text(
+                                                            text = "${product.categoryName ?: "Без категории"} · ★ ${product.rating} · в наличии: ${product.stockQuantity}",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }

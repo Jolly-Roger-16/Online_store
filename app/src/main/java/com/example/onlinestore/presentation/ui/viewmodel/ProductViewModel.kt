@@ -89,6 +89,7 @@ class ProductViewModel @Inject constructor(
         price: Double,
         categoryId: Int,
         stockQuantity: Int,
+        imageUrl: String = "",
         onResult: (Boolean) -> Unit
     ) {
         viewModelScope.launch {
@@ -100,7 +101,7 @@ class ProductViewModel @Inject constructor(
                         description = description.trim(),
                         price = price,
                         categoryId = categoryId,
-                        imageUrl = "",
+                        imageUrl = imageUrl,
                         stockQuantity = stockQuantity
                     )
                 )
@@ -122,6 +123,7 @@ class ProductViewModel @Inject constructor(
         price: Double,
         categoryId: Int,
         stockQuantity: Int,
+        imageUrl: String = "",
         onResult: (Boolean) -> Unit
     ) {
         viewModelScope.launch {
@@ -133,7 +135,7 @@ class ProductViewModel @Inject constructor(
                         description = description.trim(),
                         price = price,
                         categoryId = categoryId,
-                        imageUrl = "",
+                        imageUrl = imageUrl,
                         stockQuantity = stockQuantity
                     )
                 )

@@ -1,6 +1,15 @@
 package com.example.onlinestore.presentation.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import coil3.compose.AsyncImage
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -52,6 +61,21 @@ fun AddEditProductScreen(
     var validationError by remember { mutableStateOf<String?>(null) }
 
     val isEdit = product != null
+
+    // --- Камера: фото товара ---
+    val context = LocalContext.current
+    var imageUrl by rememberSaveable { mutableStateOf(product?.imageUrl ?: "") }
+    var pendingPhotoPath by rememberSaveable { mutableStateOf<String?>(null) }
+
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        val path = pendingPhotoPath
+        if (success && path != null) {
+            imageUrl = Uri.fromFile(java.io.File(path)).toString()
+        }
+        pendingPhotoPath = null
+    }
 
     Column(
         modifier = Modifier
@@ -126,6 +150,29 @@ fun AddEditProductScreen(
             }
         }
 
+        if (imageUrl.isNotBlank()) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = "Фото товара",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+            )
+        }
+
+        OutlinedButton(
+            onClick = {
+                val file = createImageFile(context)
+                pendingPhotoPath = file.absolutePath
+                takePictureLauncher.launch(fileToContentUri(context, file))
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("take_photo_button")
+        ) {
+            Text(if (imageUrl.isBlank()) "Сделать фото" else "Переснять фото")
+        }
+
         validationError?.let { Text(it) }
         saveError?.let { Text("Ошибка: $it") }
 
@@ -149,7 +196,8 @@ fun AddEditProductScreen(
                             description = description,
                             price = parsedPrice!!,
                             categoryId = selectedCategory!!.id,
-                            stockQuantity = parsedStock!!
+                            stockQuantity = parsedStock!!,
+                            imageUrl = imageUrl
                         ) { success ->
                             if (success) onSaved()
                         }
@@ -159,7 +207,8 @@ fun AddEditProductScreen(
                             description = description,
                             price = parsedPrice!!,
                             categoryId = selectedCategory!!.id,
-                            stockQuantity = parsedStock!!
+                            stockQuantity = parsedStock!!,
+                            imageUrl = imageUrl
                         ) { success ->
                             if (success) onSaved()
                         }
