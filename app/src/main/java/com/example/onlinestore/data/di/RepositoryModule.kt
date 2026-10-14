@@ -9,6 +9,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import com.example.onlinestore.data.repository.RemoteProductRepositoryImpl
+import com.example.onlinestore.domain.repository.RemoteProductRepository
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -25,4 +27,10 @@ abstract class RepositoryModule {
     abstract fun bindCategoryRepository(
         implementation: CategoryRepositoryImpl
     ): CategoryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRemoteProductRepository(
+        implementation: RemoteProductRepositoryImpl
+    ): RemoteProductRepository
 }

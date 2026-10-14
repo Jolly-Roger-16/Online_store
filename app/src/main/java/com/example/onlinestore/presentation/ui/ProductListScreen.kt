@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +16,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -34,11 +36,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.onlinestore.domain.model.Product
 import com.example.onlinestore.presentation.ui.viewmodel.ProductViewModel
+import coil3.compose.AsyncImage
+import androidx.compose.material3.CircularProgressIndicator
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +52,13 @@ fun ProductListScreen(
     viewModel: ProductViewModel = hiltViewModel()
 ) {
     val products by viewModel.products.collectAsStateWithLifecycle()
+    val remoteProducts by viewModel.remoteProducts.collectAsStateWithLifecycle()
+    val isRemoteLoading by viewModel.isRemoteLoading.collectAsStateWithLifecycle()
+    val remoteError by viewModel.remoteError.collectAsStateWithLifecycle()
+
+    var showRemoteProducts by rememberSaveable {
+        mutableStateOf(false)
+    }
     val selectedProduct by viewModel.selectedProduct.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -96,7 +109,6 @@ fun ProductListScreen(
                     ProductDetailScreen(
                         product = selectedProduct!!,
                         categoryName = viewModel.getCategoryNameById(selectedProduct!!.categoryId),
-                        onBack = { viewModel.clearSelectedProduct() },
                         onEdit = {
                             editingProduct = selectedProduct
                             viewModel.clearSelectedProduct()
@@ -192,32 +204,111 @@ fun ProductListScreen(
                     }
                 }
             ) { padding ->
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center
+                        .padding(padding)
                 ) {
-                    if (products.isEmpty()) {
-                        Text("Товаров пока нет")
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(products, key = { it.id }) { product ->
-                                Card(
-                                    onClick = { viewModel.loadProductById(product.id) },
-                                    modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = !showRemoteProducts,
+                            onClick = { showRemoteProducts = false },
+                            label = { Text("Мои товары") }
+                        )
+                        FilterChip(
+                            selected = showRemoteProducts,
+                            onClick = {
+                                showRemoteProducts = true
+                                viewModel.loadRemoteProducts()
+                            },
+                            label = { Text("DummyJSON") }
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val displayedProducts =
+                            if (showRemoteProducts) remoteProducts else products
+
+                        when {
+                            showRemoteProducts && isRemoteLoading -> {
+                                CircularProgressIndicator()
+                            }
+
+                            showRemoteProducts && remoteError != null -> {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("Ошибка: $remoteError")
+                                    TextButton(onClick = { viewModel.loadRemoteProducts() }) {
+                                        Text("Повторить")
+                                    }
+                                }
+                            }
+
+                            displayedProducts.isEmpty() -> {
+                                Text(
+                                    if (showRemoteProducts) {
+                                        "В API пока нет товаров"
+                                    } else {
+                                        "Товаров пока нет"
+                                    }
+                                )
+                            }
+
+                            else -> {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {
-                                        Text(
-                                            text = product.name,
-                                            style = MaterialTheme.typography.titleMedium
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text("${product.price} ₽")
+                                    items(displayedProducts, key = { it.id }) { product ->
+                                        Card(
+                                            onClick = {
+                                                if (!showRemoteProducts) {
+                                                    viewModel.loadProductById(product.id)
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Column(modifier = Modifier.padding(16.dp)) {
+                                                if (product.imageUrl.isNotBlank()) {
+                                                    AsyncImage(
+                                                        model = product.imageUrl,
+                                                        contentDescription = product.name,
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .height(120.dp)
+                                                    )
+
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                }
+
+                                                Text(
+                                                    text = product.name,
+                                                    style = MaterialTheme.typography.titleMedium
+                                                )
+
+                                                Spacer(modifier = Modifier.height(4.dp))
+
+                                                // DummyJSON отдаёт цены в долларах, локальные товары храним в рублях
+                                                Text(if (showRemoteProducts) "${product.price} $" else "${product.price} ₽")
+
+                                                if (showRemoteProducts) {
+                                                    Text("Категория: ${product.categoryName ?: "Не указана"}")
+                                                    Text("Рейтинг: ${product.rating}")
+                                                    Text("Остаток: ${product.stockQuantity}")
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

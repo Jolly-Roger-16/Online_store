@@ -27,7 +27,6 @@ import com.example.onlinestore.domain.model.Product
 fun ProductDetailScreen(
     product: Product,
     categoryName: String?,
-    onBack: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -108,11 +107,6 @@ fun ProductDetailScreen(
             Text("Удалить")
         }
 
-        TextButton(
-            onClick = onBack,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Назад к списку")
-        }
+
     }
 }

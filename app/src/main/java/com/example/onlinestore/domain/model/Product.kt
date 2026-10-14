@@ -9,6 +9,7 @@ data class Product(
     val imageUrl: String,
     val stockQuantity: Int,
     val rating: Double = 0.0,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val categoryName: String? = null
 )
 

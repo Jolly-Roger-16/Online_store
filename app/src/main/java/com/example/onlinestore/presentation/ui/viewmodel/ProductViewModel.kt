@@ -15,12 +15,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.example.onlinestore.domain.usecase.GetRemoteProductsUseCase
 
 @HiltViewModel
 class ProductViewModel @Inject constructor(
     private val getProductsUseCase: GetProductsUseCase,
     private val productRepository: ProductRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val getRemoteProductsUseCase: GetRemoteProductsUseCase
 ) : ViewModel() {
 
     private val _products = MutableStateFlow<List<Product>>(emptyList())
@@ -35,7 +37,6 @@ class ProductViewModel @Inject constructor(
     private val _saveError = MutableStateFlow<String?>(null)
     val saveError: StateFlow<String?> = _saveError.asStateFlow()
 
-    // Channel для Snackbar "Данные сохранены" один раз
     private val _saveEvent = Channel<Unit>(Channel.CONFLATED)
     val saveEvent = _saveEvent.receiveAsFlow()
 
@@ -105,7 +106,7 @@ class ProductViewModel @Inject constructor(
                 )
                 _saveError.value = null
                 loadProducts()
-                _saveEvent.send(Unit) // Snackbar "Данные сохранены"
+                _saveEvent.send(Unit)
                 onResult(true)
             } catch (exception: Exception) {
                 _saveError.value = exception.message ?: "Не удалось сохранить товар"
@@ -155,7 +156,7 @@ class ProductViewModel @Inject constructor(
                 _saveError.value = null
                 _selectedProduct.value = null
                 loadProducts()
-                _saveEvent.send(Unit) // Snackbar "Данные сохранены"
+                _saveEvent.send(Unit)
                 onResult(true)
             } catch (exception: Exception) {
                 _saveError.value = exception.message ?: "Не удалось удалить товар"
@@ -175,7 +176,7 @@ class ProductViewModel @Inject constructor(
                     )
                 )
                 loadCategories()
-                _saveEvent.send(Unit) // Snackbar "Данные сохранены"
+                _saveEvent.send(Unit)
             } catch (exception: Exception) {
                 _saveError.value = exception.message ?: "Не удалось сохранить категорию"
             }
@@ -184,5 +185,30 @@ class ProductViewModel @Inject constructor(
 
     fun clearSaveError() {
         _saveError.value = null
+    }
+
+    private val _remoteProducts = MutableStateFlow<List<Product>>(emptyList())
+    val remoteProducts: StateFlow<List<Product>> = _remoteProducts.asStateFlow()
+
+    private val _isRemoteLoading = MutableStateFlow(false)
+    val isRemoteLoading: StateFlow<Boolean> = _isRemoteLoading.asStateFlow()
+
+    private val _remoteError = MutableStateFlow<String?>(null)
+    val remoteError: StateFlow<String?> = _remoteError.asStateFlow()
+
+    fun loadRemoteProducts() {
+        viewModelScope.launch {
+            _isRemoteLoading.value = true
+            _remoteError.value = null
+
+            try {
+                _remoteProducts.value = getRemoteProductsUseCase()
+            } catch (exception: Exception) {
+                _remoteError.value =
+                    exception.message ?: "Не удалось загрузить товары из DummyJSON"
+            } finally {
+                _isRemoteLoading.value = false
+            }
+        }
     }
 }
